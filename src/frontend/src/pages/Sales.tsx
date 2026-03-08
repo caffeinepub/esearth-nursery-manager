@@ -42,7 +42,7 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { usePinRole } from "../contexts/PinRoleContext";
 import { useInventory } from "../hooks/useInventory";
@@ -110,229 +110,6 @@ const paymentColors: Record<PaymentMethod, string> = {
   Card: "bg-chart-3/15 text-chart-3 border-0",
 };
 
-// ── Invoice Print Template ────────────────────────────────────────────────
-function InvoicePrintTemplate({ invoice }: { invoice: Invoice }) {
-  const total = invoice.lineItems.reduce(
-    (s, l) => s + l.quantity * l.unitPrice,
-    0,
-  );
-
-  return (
-    <div style={{ padding: "2cm", background: "white", color: "black" }}>
-      <div style={{ maxWidth: 700, margin: "0 auto", fontFamily: "serif" }}>
-        {/* Header */}
-        <div
-          style={{
-            textAlign: "center",
-            borderBottom: "2px solid #1a3d1f",
-            paddingBottom: 12,
-            marginBottom: 16,
-          }}
-        >
-          <h1
-            style={{
-              fontSize: 22,
-              fontWeight: 700,
-              color: "#1a3d1f",
-              letterSpacing: 2,
-              margin: 0,
-            }}
-          >
-            ESEARTH NURSERY GARDEN
-          </h1>
-          <p style={{ fontSize: 12, color: "#444", margin: "4px 0 0" }}>
-            Near Jio Petrol Bunk, Salem Highway
-          </p>
-          <p style={{ fontSize: 12, color: "#444", margin: "2px 0 0" }}>
-            Papinaickenpatti, Namakkal – 637003
-          </p>
-          <p style={{ fontSize: 12, color: "#444", margin: "2px 0 0" }}>
-            Ph: 7695887203 / 9443551796
-          </p>
-        </div>
-
-        {/* Invoice Info */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginBottom: 16,
-          }}
-        >
-          <div>
-            <p
-              style={{
-                fontWeight: 700,
-                fontSize: 16,
-                color: "#1a3d1f",
-                margin: 0,
-              }}
-            >
-              INVOICE
-            </p>
-            <p style={{ fontSize: 12, color: "#555", margin: "2px 0 0" }}>
-              Invoice No: {invoice.invoiceNumber}
-            </p>
-            <p style={{ fontSize: 12, color: "#555", margin: "2px 0 0" }}>
-              Date: {invoice.date}
-            </p>
-            <p style={{ fontSize: 12, color: "#555", margin: "2px 0 0" }}>
-              Payment: {invoice.paymentMethod}
-            </p>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <p style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>Bill To:</p>
-            <p style={{ fontSize: 13, margin: "2px 0 0" }}>
-              {invoice.customerName}
-            </p>
-            {invoice.customerPhone && (
-              <p style={{ fontSize: 12, color: "#555", margin: "2px 0 0" }}>
-                {invoice.customerPhone}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {invoice.notes && (
-          <p style={{ fontSize: 12, color: "#666", marginBottom: 12 }}>
-            Note: {invoice.notes}
-          </p>
-        )}
-
-        {/* Line items table */}
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            marginBottom: 16,
-          }}
-        >
-          <thead>
-            <tr
-              style={{
-                borderBottom: "2px solid #1a3d1f",
-                backgroundColor: "#f5f9f5",
-              }}
-            >
-              <th
-                style={{ textAlign: "left", padding: "8px 6px", fontSize: 12 }}
-              >
-                Item
-              </th>
-              <th
-                style={{ textAlign: "right", padding: "8px 6px", fontSize: 12 }}
-              >
-                Qty
-              </th>
-              <th
-                style={{ textAlign: "right", padding: "8px 6px", fontSize: 12 }}
-              >
-                Unit Price
-              </th>
-              <th
-                style={{ textAlign: "right", padding: "8px 6px", fontSize: 12 }}
-              >
-                Amount
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {invoice.lineItems.map((li, idx) => (
-              <tr
-                key={li.id}
-                style={{
-                  borderBottom: "1px solid #e8f0e8",
-                  backgroundColor: idx % 2 === 0 ? "white" : "#fafef9",
-                }}
-              >
-                <td style={{ padding: "7px 6px", fontSize: 12 }}>{li.name}</td>
-                <td
-                  style={{
-                    textAlign: "right",
-                    padding: "7px 6px",
-                    fontSize: 12,
-                  }}
-                >
-                  {li.quantity}
-                </td>
-                <td
-                  style={{
-                    textAlign: "right",
-                    padding: "7px 6px",
-                    fontSize: 12,
-                  }}
-                >
-                  ₹{li.unitPrice.toFixed(2)}
-                </td>
-                <td
-                  style={{
-                    textAlign: "right",
-                    padding: "7px 6px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                  }}
-                >
-                  ₹{(li.quantity * li.unitPrice).toFixed(2)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Total */}
-        <div
-          style={{
-            textAlign: "right",
-            borderTop: "2px solid #1a3d1f",
-            paddingTop: 8,
-            marginBottom: 24,
-          }}
-        >
-          <p style={{ fontSize: 18, fontWeight: 700, color: "#1a3d1f" }}>
-            Total: ₹{total.toFixed(2)}
-          </p>
-          <p style={{ fontSize: 12, color: "#555", marginTop: 2 }}>
-            Payment Method: {invoice.paymentMethod}
-          </p>
-        </div>
-
-        {/* Footer */}
-        <div
-          style={{
-            borderTop: "1px dashed #ccc",
-            paddingTop: 16,
-            textAlign: "center",
-            color: "#555",
-          }}
-        >
-          <p style={{ fontSize: 11, lineHeight: 1.6, marginBottom: 8 }}>
-            We declare that this invoice shows the actual price of the goods
-            described and that all particulars are true and correct.
-          </p>
-          <p
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: "#1a3d1f",
-              margin: "8px 0 2px",
-            }}
-          >
-            THANK YOU FOR SHOPPING WITH US
-          </p>
-          <p style={{ fontSize: 12, color: "#444", marginBottom: 8 }}>
-            VISIT AGAIN – HAVE A NICE DAY
-          </p>
-          <p style={{ fontSize: 13, fontStyle: "italic", color: "#2d5a2e" }}>
-            உழுதுண்டு வாழ்வாரே வாழ்வார்மற் றெல்லாம்
-            <br />
-            தொழுதுண்டு பின்செல் பவர்.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function Sales() {
   const { role } = usePinRole();
   const { invoices, addInvoice, deleteInvoice, togglePaid } = useSales();
@@ -342,10 +119,7 @@ export default function Sales() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<InvoiceFormData>(emptyForm());
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [printInvoice, setPrintInvoice] = useState<Invoice | null>(null);
   const [saving, setSaving] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const invoicePrintRef = useRef<HTMLDivElement>(null);
   // Track open state for each line item's inventory combobox
   const [comboOpenMap, setComboOpenMap] = useState<Record<string, boolean>>({});
 
@@ -460,40 +234,139 @@ export default function Sales() {
     }
   };
 
-  const handlePrint = async (invoice: Invoice) => {
-    setExporting(true);
-    setPrintInvoice(invoice);
-    // Wait for the hidden print area to render
-    await new Promise((r) => setTimeout(r, 300));
-    try {
-      const { default: html2canvas } = await import("html2canvas");
-      const { default: jsPDF } = await import("jspdf");
-      const el = invoicePrintRef.current;
-      if (!el) return;
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-      });
-      const imgData = canvas.toDataURL("image/png");
-      // 80mm thermal printer width = ~226pt; use A4 fallback for readability
-      const pageWidth = 210; // A4 mm
-      const pageHeight = (canvas.height / canvas.width) * pageWidth;
-      const pdf = new jsPDF({
-        orientation: pageHeight > pageWidth ? "portrait" : "landscape",
-        unit: "mm",
-        format: [pageWidth, Math.max(pageHeight, 80)],
-      });
-      pdf.addImage(imgData, "PNG", 0, 0, pageWidth, pageHeight);
-      pdf.save(`Invoice-${invoice.invoiceNumber}.pdf`);
-      toast.success(`Invoice ${invoice.invoiceNumber} exported as PDF`);
-    } catch {
+  const handlePrint = (invoice: Invoice) => {
+    const total = invoice.lineItems.reduce(
+      (s, l) => s + l.quantity * l.unitPrice,
+      0,
+    );
+
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Invoice ${invoice.invoiceNumber}</title>
+  <style>
+    @page { margin: 1cm; size: A4 portrait; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: serif; color: #111; background: #fff; }
+    .wrap { max-width: 700px; margin: 0 auto; padding: 24px; }
+    .header { text-align: center; border-bottom: 2px solid #1a3d1f; padding-bottom: 12px; margin-bottom: 16px; }
+    .header h1 { font-size: 20px; font-weight: 700; color: #1a3d1f; letter-spacing: 2px; }
+    .header p { font-size: 11px; color: #444; margin-top: 3px; }
+    .meta { display: flex; justify-content: space-between; margin-bottom: 16px; }
+    .meta-left p, .meta-right p { font-size: 12px; color: #555; margin-top: 2px; }
+    .meta-left .title { font-weight: 700; font-size: 15px; color: #1a3d1f; }
+    .meta-right { text-align: right; }
+    .meta-right .bill-title { font-weight: 600; font-size: 13px; }
+    .notes { font-size: 11px; color: #666; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    thead tr { border-bottom: 2px solid #1a3d1f; background: #f5f9f5; }
+    th { text-align: left; padding: 8px 6px; font-size: 12px; }
+    th:not(:first-child) { text-align: right; }
+    td { padding: 7px 6px; font-size: 12px; border-bottom: 1px solid #e8f0e8; }
+    td:not(:first-child) { text-align: right; }
+    tr:nth-child(even) td { background: #fafef9; }
+    .total-row { border-top: 2px solid #1a3d1f; padding-top: 8px; text-align: right; margin-bottom: 24px; }
+    .total-row .total-amt { font-size: 17px; font-weight: 700; color: #1a3d1f; }
+    .total-row .pay-method { font-size: 12px; color: #555; margin-top: 2px; }
+    .footer { border-top: 1px dashed #ccc; padding-top: 14px; text-align: center; color: #555; }
+    .footer .decl { font-size: 10px; line-height: 1.6; margin-bottom: 8px; }
+    .footer .thanks { font-size: 13px; font-weight: 700; color: #1a3d1f; margin: 8px 0 2px; }
+    .footer .visit { font-size: 12px; color: #444; margin-bottom: 8px; }
+    .footer .tamil { font-size: 13px; font-style: italic; color: #2d5a2e; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1>ESEARTH NURSERY GARDEN</h1>
+    <p>Near Jio Petrol Bunk, Salem Highway</p>
+    <p>Papinaickenpatti, Namakkal – 637003</p>
+    <p>Ph: 7695887203 / 9443551796</p>
+  </div>
+  <div class="meta">
+    <div class="meta-left">
+      <p class="title">INVOICE</p>
+      <p>Invoice No: ${invoice.invoiceNumber}</p>
+      <p>Date: ${invoice.date}</p>
+      <p>Payment: ${invoice.paymentMethod}</p>
+    </div>
+    <div class="meta-right">
+      <p class="bill-title">Bill To:</p>
+      <p>${invoice.customerName}</p>
+      ${invoice.customerPhone ? `<p>${invoice.customerPhone}</p>` : ""}
+    </div>
+  </div>
+  ${invoice.notes ? `<p class="notes">Note: ${invoice.notes}</p>` : ""}
+  <table>
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Qty</th>
+        <th>Unit Price</th>
+        <th>Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${invoice.lineItems
+        .map(
+          (li) => `
+      <tr>
+        <td>${li.name}</td>
+        <td>${li.quantity}</td>
+        <td>&#8377;${li.unitPrice.toFixed(2)}</td>
+        <td><strong>&#8377;${(li.quantity * li.unitPrice).toFixed(2)}</strong></td>
+      </tr>`,
+        )
+        .join("")}
+    </tbody>
+  </table>
+  <div class="total-row">
+    <p class="total-amt">Total: &#8377;${total.toFixed(2)}</p>
+    <p class="pay-method">Payment Method: ${invoice.paymentMethod}</p>
+  </div>
+  <div class="footer">
+    <p class="decl">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</p>
+    <p class="thanks">THANK YOU FOR SHOPPING WITH US</p>
+    <p class="visit">VISIT AGAIN – HAVE A NICE DAY</p>
+    <p class="tamil">உழுதுண்டு வாழ்வாரே வாழ்வார்மற் றெல்லாம்<br/>தொழுதுண்டு பின்செல் பவர்.</p>
+  </div>
+</div>
+</body>
+</html>`;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.top = "-9999px";
+    iframe.style.left = "-9999px";
+    iframe.style.width = "210mm";
+    iframe.style.height = "297mm";
+    iframe.style.border = "none";
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
       toast.error("Failed to export PDF");
-    } finally {
-      setExporting(false);
-      setPrintInvoice(null);
+      document.body.removeChild(iframe);
+      return;
     }
+
+    iframeDoc.open();
+    iframeDoc.write(htmlContent);
+    iframeDoc.close();
+
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {
+        toast.error("Failed to export PDF");
+      } finally {
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
+      }
+    };
   };
 
   return (
@@ -623,13 +496,8 @@ export default function Sales() {
                           onClick={() => handlePrint(inv)}
                           data-ocid={`sales.print.button.${idx + 1}`}
                           title="Export Invoice as PDF"
-                          disabled={exporting}
                         >
-                          {exporting && printInvoice?.id === inv.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Printer className="w-3.5 h-3.5" />
-                          )}
+                          <Printer className="w-3.5 h-3.5" />
                         </Button>
                         {role === "owner" && (
                           <Button
@@ -982,23 +850,6 @@ export default function Sales() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Hidden invoice render area for PDF export */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          zIndex: -9999,
-          pointerEvents: "none",
-          opacity: printInvoice ? 1 : 0,
-          width: 794,
-        }}
-      >
-        <div ref={invoicePrintRef}>
-          {printInvoice && <InvoicePrintTemplate invoice={printInvoice} />}
-        </div>
-      </div>
     </div>
   );
 }
