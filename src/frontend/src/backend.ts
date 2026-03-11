@@ -164,6 +164,8 @@ export interface backendInterface {
     saveLowStockThreshold(value: bigint): Promise<void>;
     toggleChecklistItem(id: bigint): Promise<void>;
     updateTask(id: bigint, title: string, description: string, priority: string, dueDate: string, assignedTo: string, status: string): Promise<void>;
+    setSharedData(key: string, value: string): Promise<void>;
+    getSharedData(key: string): Promise<string | null>;
 }
 import type { UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -474,6 +476,35 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.updateTask(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
             return result;
+        }
+    }
+
+    async setSharedData(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await (this.actor as any).setSharedData(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await (this.actor as any).setSharedData(arg0, arg1);
+            return result;
+        }
+    }
+    async getSharedData(arg0: string): Promise<string | null> {
+        if (this.processError) {
+            try {
+                const result = await (this.actor as any).getSharedData(arg0);
+                return result.length === 0 ? null : result[0];
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await (this.actor as any).getSharedData(arg0);
+            return result.length === 0 ? null : result[0];
         }
     }
 }

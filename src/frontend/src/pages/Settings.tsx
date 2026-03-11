@@ -12,7 +12,7 @@ import {
 } from "../hooks/useQueries";
 
 export default function Settings() {
-  const { ownerPin, clerkPin, setOwnerPin, setClerkPin } = usePinRole();
+  const { ownerPin, clerkPin, savePins } = usePinRole();
   const { data: threshold } = useLowStockThreshold();
   const saveThreshold = useSaveLowStockThreshold();
 
@@ -29,6 +29,14 @@ export default function Settings() {
       setThresholdValue(Number(threshold));
     }
   }, [threshold]);
+
+  // Sync input fields if PINs load from backend after mount
+  useEffect(() => {
+    setNewOwnerPin(ownerPin);
+  }, [ownerPin]);
+  useEffect(() => {
+    setNewClerkPin(clerkPin);
+  }, [clerkPin]);
 
   const handleSavePins = () => {
     if (newOwnerPin.length !== 4 || !/^\d{4}$/.test(newOwnerPin)) {
@@ -47,11 +55,10 @@ export default function Settings() {
       toast.error("Clerk PIN confirmation does not match");
       return;
     }
-    setOwnerPin(newOwnerPin);
-    setClerkPin(newClerkPin);
+    savePins(newOwnerPin, newClerkPin);
     setConfirmOwnerPin("");
     setConfirmClerkPin("");
-    toast.success("PINs updated successfully");
+    toast.success("PINs updated and synced to all devices");
   };
 
   const handleSaveThreshold = async () => {
@@ -90,9 +97,8 @@ export default function Settings() {
           <div className="p-3 bg-muted/50 rounded-lg flex items-start gap-2 text-xs text-muted-foreground">
             <AlertTriangle className="w-4 h-4 flex-shrink-0 text-warning-foreground mt-0.5" />
             <span>
-              PINs are stored locally in your browser. Make sure you remember
-              your new PINs before saving — if you forget the Owner PIN, you
-              won't be able to access owner features.
+              PINs are synced to the backend canister and shared across all
+              devices. Make sure you remember your new PINs before saving.
             </span>
           </div>
 
@@ -224,9 +230,9 @@ export default function Settings() {
         <CardContent className="p-4">
           <p className="text-xs text-muted-foreground">
             <strong className="text-foreground">Esearth Nursery Manager</strong>{" "}
-            — All inventory, sales, expenditure and priority data is stored
-            locally in your browser's localStorage. Checklist data and settings
-            are synced with the backend canister.
+            — All data (inventory, sales, expenditures, checklist, tasks, PINs)
+            is synced with the backend canister. No data is stored locally on
+            the device.
           </p>
         </CardContent>
       </Card>

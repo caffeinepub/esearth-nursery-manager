@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
+import OfflineBanner from "./OfflineBanner";
 import Sidebar from "./Sidebar";
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <OfflineBanner />
       <Sidebar />
       {/* Content area — offset for desktop sidebar, add top padding for mobile bar */}
       <main className="lg:pl-60 pt-16 lg:pt-0 flex-1">

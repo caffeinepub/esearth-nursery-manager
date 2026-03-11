@@ -34,18 +34,11 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { usePinRole } from "../contexts/PinRoleContext";
-import {
-  useAddBackendTask,
-  useAddChecklistItem,
-  useBackendTasks,
-  useChecklistItems,
-  useCompleteBackendTask,
-  useDeleteBackendTask,
-  useDeleteChecklistItem,
-  useResetChecklist,
-  useToggleChecklistItem,
-  useUpdateBackendTask,
-} from "../hooks/useQueries";
+import { useChecklist, useDailyTasks } from "../hooks/useChecklistData";
+import type {
+  ChecklistItemLocal,
+  DailyTaskLocal,
+} from "../hooks/useChecklistData";
 
 interface TaskForm {
   title: string;
@@ -85,42 +78,48 @@ export default function DailyChecklist() {
   const { role } = usePinRole();
   const today = new Date().toISOString().split("T")[0];
 
-  // Checklist
-  const { data: checklistItems = [], isLoading: checklistLoading } =
-    useChecklistItems(today);
-  const addChecklistItem = useAddChecklistItem();
-  const toggleChecklistItem = useToggleChecklistItem(today);
-  const deleteChecklistItem = useDeleteChecklistItem(today);
-  const resetChecklist = useResetChecklist(today);
+  // Backend-synced checklist
+  const {
+    items: checklistItems,
+    isLoading: checklistLoading,
+    addItem,
+    toggleItem,
+    deleteItem,
+    resetDay,
+    updateItem,
+  } = useChecklist(today);
 
-  // Backend tasks
-  const { data: allTasks = [], isLoading: tasksLoading } = useBackendTasks();
-  const addTask = useAddBackendTask();
-  const updateTask = useUpdateBackendTask();
-  const deleteTask = useDeleteBackendTask();
-  const completeTask = useCompleteBackendTask();
+  // Backend-synced tasks
+  const {
+    tasks: allTasks,
+    isLoading: tasksLoading,
+    addTask,
+    updateTask,
+    deleteTask,
+    completeTask,
+  } = useDailyTasks();
 
   const [newTitle, setNewTitle] = useState("");
-  const [checklistDeleteId, setChecklistDeleteId] = useState<bigint | null>(
+  const [checklistDeleteId, setChecklistDeleteId] = useState<string | null>(
     null,
   );
   const prevAllDone = useRef(false);
 
   // Checklist item editing state
-  const [editChecklistItem, setEditChecklistItem] = useState<{
-    id: bigint;
-    title: string;
-    completed: boolean;
-    category: string;
-    date: string;
-  } | null>(null);
+  const [editChecklistItem, setEditChecklistItem] =
+    useState<ChecklistItemLocal | null>(null);
   const [editChecklistTitle, setEditChecklistTitle] = useState("");
+
+  // Async pending states
+  const [isAddingChecklist, setIsAddingChecklist] = useState(false);
+  const [isEditingChecklist, setIsEditingChecklist] = useState(false);
 
   // Task management
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
-  const [editingTaskId, setEditingTaskId] = useState<bigint | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [taskForm, setTaskForm] = useState<TaskForm>(emptyTaskForm());
-  const [taskDeleteId, setTaskDeleteId] = useState<bigint | null>(null);
+  const [taskDeleteId, setTaskDeleteId] = useState<string | null>(null);
+  const [isSavingTask, setIsSavingTask] = useState(false);
 
   const total = checklistItems.length;
   const completed = checklistItems.filter((i) => i.completed).length;
@@ -152,7 +151,7 @@ export default function DailyChecklist() {
       });
       fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
       fire(0.1, { spread: 120, startVelocity: 45 });
-      toast.success("🎉 All tasks complete! Great work today!", {
+      toast.success("All tasks complete! Great work today!", {
         duration: 4000,
       });
     } else if (!allDone) {
@@ -163,29 +162,28 @@ export default function DailyChecklist() {
   const handleAddChecklist = async () => {
     const title = newTitle.trim();
     if (!title) return;
+    setIsAddingChecklist(true);
     try {
-      await addChecklistItem.mutateAsync({
-        title,
-        date: today,
-        category: "Daily",
-      });
+      await addItem(title, "Daily");
       setNewTitle("");
     } catch {
       toast.error("Failed to add item");
+    } finally {
+      setIsAddingChecklist(false);
     }
   };
 
-  const handleToggle = async (id: bigint) => {
+  const handleToggle = async (id: string) => {
     try {
-      await toggleChecklistItem.mutateAsync(id);
+      await toggleItem(id);
     } catch {
       toast.error("Failed to update item");
     }
   };
 
-  const handleDeleteChecklist = async (id: bigint) => {
+  const handleDeleteChecklist = async (id: string) => {
     try {
-      await deleteChecklistItem.mutateAsync(id);
+      await deleteItem(id);
       setChecklistDeleteId(null);
       toast.success("Item removed");
     } catch {
@@ -195,40 +193,30 @@ export default function DailyChecklist() {
 
   const handleReset = async () => {
     try {
-      await resetChecklist.mutateAsync();
+      await resetDay();
       toast.success("Checklist reset for today");
     } catch {
       toast.error("Failed to reset checklist");
     }
   };
 
-  // Edit checklist item: delete old, re-add with new title preserving completed state
-  const openEditChecklist = (item: {
-    id: bigint;
-    title: string;
-    completed: boolean;
-    category: string;
-    date: string;
-  }) => {
+  const openEditChecklist = (item: ChecklistItemLocal) => {
     setEditChecklistItem(item);
     setEditChecklistTitle(item.title);
   };
 
   const handleSaveEditChecklist = async () => {
     if (!editChecklistItem || !editChecklistTitle.trim()) return;
+    setIsEditingChecklist(true);
     try {
-      // Delete old item, then add new one with updated title
-      await deleteChecklistItem.mutateAsync(editChecklistItem.id);
-      await addChecklistItem.mutateAsync({
-        title: editChecklistTitle.trim(),
-        date: editChecklistItem.date,
-        category: editChecklistItem.category,
-      });
+      await updateItem(editChecklistItem.id, editChecklistTitle.trim());
       setEditChecklistItem(null);
       setEditChecklistTitle("");
       toast.success("Item updated");
     } catch {
       toast.error("Failed to update item");
+    } finally {
+      setIsEditingChecklist(false);
     }
   };
 
@@ -239,15 +227,7 @@ export default function DailyChecklist() {
     setTaskDialogOpen(true);
   };
 
-  const openEditTask = (task: {
-    id: bigint;
-    title: string;
-    description: string;
-    priority: string;
-    dueDate: string;
-    assignedTo: string;
-    status: string;
-  }) => {
+  const openEditTask = (task: DailyTaskLocal) => {
     setEditingTaskId(task.id);
     setTaskForm({
       title: task.title,
@@ -264,11 +244,11 @@ export default function DailyChecklist() {
       toast.error("Task title is required");
       return;
     }
+    setIsSavingTask(true);
     try {
       if (editingTaskId !== null) {
         const task = allTasks.find((t) => t.id === editingTaskId);
-        await updateTask.mutateAsync({
-          id: editingTaskId,
+        await updateTask(editingTaskId, {
           title: taskForm.title,
           description: taskForm.description,
           priority: taskForm.priority,
@@ -278,7 +258,7 @@ export default function DailyChecklist() {
         });
         toast.success("Task updated");
       } else {
-        await addTask.mutateAsync({
+        await addTask({
           title: taskForm.title,
           description: taskForm.description,
           priority: taskForm.priority,
@@ -290,12 +270,14 @@ export default function DailyChecklist() {
       setTaskDialogOpen(false);
     } catch {
       toast.error("Failed to save task");
+    } finally {
+      setIsSavingTask(false);
     }
   };
 
-  const handleDeleteTask = async (id: bigint) => {
+  const handleDeleteTask = async (id: string) => {
     try {
-      await deleteTask.mutateAsync(id);
+      await deleteTask(id);
       setTaskDeleteId(null);
       toast.success("Task deleted");
     } catch {
@@ -303,9 +285,9 @@ export default function DailyChecklist() {
     }
   };
 
-  const handleCompleteTask = async (id: bigint) => {
+  const handleCompleteTask = async (id: string) => {
     try {
-      await completeTask.mutateAsync(id);
+      await completeTask(id);
       toast.success("Task marked as done");
     } catch {
       toast.error("Failed to complete task");
@@ -367,7 +349,6 @@ export default function DailyChecklist() {
                 variant="outline"
                 size="sm"
                 onClick={handleReset}
-                disabled={resetChecklist.isPending}
                 data-ocid="checklist.reset.button"
               >
                 <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
@@ -392,7 +373,7 @@ export default function DailyChecklist() {
                   )}
                   <span className="text-sm font-medium">
                     {allDone
-                      ? "All done! 🎉"
+                      ? "All done!"
                       : `${completed} of ${total} completed`}
                   </span>
                 </div>
@@ -428,7 +409,7 @@ export default function DailyChecklist() {
               />
               <Button
                 onClick={handleAddChecklist}
-                disabled={!newTitle.trim() || addChecklistItem.isPending}
+                disabled={!newTitle.trim() || isAddingChecklist}
                 data-ocid="checklist.add.button"
               >
                 <Plus className="w-4 h-4 mr-1.5" />
@@ -468,7 +449,7 @@ export default function DailyChecklist() {
             <div className="space-y-2 max-w-2xl">
               {checklistItems.map((item, idx) => (
                 <Card
-                  key={String(item.id)}
+                  key={item.id}
                   className={`border-border transition-all ${
                     item.completed ? "opacity-60 bg-muted/30" : "bg-card"
                   }`}
@@ -580,7 +561,7 @@ export default function DailyChecklist() {
                 <tbody>
                   {visibleTasks.map((task, idx) => (
                     <tr
-                      key={String(task.id)}
+                      key={task.id}
                       className="border-b border-border last:border-0 hover:bg-muted/20"
                       data-ocid={`tasks.item.${idx + 1}`}
                     >
@@ -699,14 +680,10 @@ export default function DailyChecklist() {
             </Button>
             <Button
               onClick={handleSaveEditChecklist}
-              disabled={
-                !editChecklistTitle.trim() ||
-                deleteChecklistItem.isPending ||
-                addChecklistItem.isPending
-              }
+              disabled={!editChecklistTitle.trim() || isEditingChecklist}
               data-ocid="checklist.edit.save_button"
             >
-              {deleteChecklistItem.isPending || addChecklistItem.isPending ? (
+              {isEditingChecklist ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : null}
               Save
@@ -844,10 +821,10 @@ export default function DailyChecklist() {
             </Button>
             <Button
               onClick={handleSaveTask}
-              disabled={addTask.isPending || updateTask.isPending}
+              disabled={isSavingTask}
               data-ocid="tasks.submit_button"
             >
-              {addTask.isPending || updateTask.isPending ? (
+              {isSavingTask ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : null}
               {editingTaskId !== null ? "Save Changes" : "Assign Task"}

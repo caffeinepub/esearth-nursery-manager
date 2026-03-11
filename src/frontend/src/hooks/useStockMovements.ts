@@ -1,22 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import type { StockMovement, StockMovementType } from "../types";
+import { useSharedBackendData } from "./useSharedBackendData";
 
-const STORAGE_KEY = "esearth_stock_movements";
+const BACKEND_KEY = "esearth_stock_movements_v3";
 
 export function useStockMovements() {
-  const [movements, setMovements] = useState<StockMovement[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) return JSON.parse(stored);
-    } catch {}
-    return [];
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(movements));
-    } catch {}
-  }, [movements]);
+  const { data: movements, saveData: saveMovements } = useSharedBackendData<
+    StockMovement[]
+  >(BACKEND_KEY, []);
 
   const addMovement = useCallback(
     (movement: {
@@ -32,16 +23,14 @@ export function useStockMovements() {
         id: `mov-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         timestamp: new Date().toISOString(),
       };
-      setMovements((prev) => [newMovement, ...prev]);
+      saveMovements([newMovement, ...movements]);
       return newMovement;
     },
-    [],
+    [movements, saveMovements],
   );
 
   const getMovementsByItem = useCallback(
-    (itemId: string) => {
-      return movements.filter((m) => m.itemId === itemId);
-    },
+    (itemId: string) => movements.filter((m) => m.itemId === itemId),
     [movements],
   );
 

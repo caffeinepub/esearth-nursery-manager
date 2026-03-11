@@ -81,4 +81,12 @@ export interface backendInterface {
     saveLowStockThreshold(value: bigint): Promise<void>;
     toggleChecklistItem(id: bigint): Promise<void>;
     updateTask(id: bigint, title: string, description: string, priority: string, dueDate: string, assignedTo: string, status: string): Promise<void>;
+    /**
+     * / ***********************************
+     * /    * Shared Data Store               *
+     * /    * Generic key-value JSON storage  *
+     * /    ***********************************
+     */
+    setSharedData(key: string, value: string): Promise<void>;
+    getSharedData(key: string): Promise<string | null>;
 }

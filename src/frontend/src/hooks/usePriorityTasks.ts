@@ -1,57 +1,52 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import type { AssignedTo, Priority, PriorityTask, TaskStatus } from "../types";
+import { useSharedBackendData } from "./useSharedBackendData";
 
-const STORAGE_KEY = "esearth_priority_tasks_v2";
+const BACKEND_KEY = "esearth_priority_tasks_v3";
 
 export function usePriorityTasks() {
-  const [tasks, setTasks] = useState<PriorityTask[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) return JSON.parse(stored);
-    } catch {}
-    return [];
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-    } catch {}
-  }, [tasks]);
+  const { data: tasks, saveData: saveTasks } = useSharedBackendData<
+    PriorityTask[]
+  >(BACKEND_KEY, []);
 
   const addTask = useCallback(
     (task: Omit<PriorityTask, "id" | "createdAt">) => {
-      setTasks((prev) => [
+      saveTasks([
         {
           ...task,
           id: `task-${Date.now()}`,
           createdAt: new Date().toISOString().split("T")[0],
         },
-        ...prev,
+        ...tasks,
       ]);
     },
-    [],
+    [tasks, saveTasks],
   );
 
   const updateTask = useCallback(
     (id: string, updates: Partial<Omit<PriorityTask, "id">>) => {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, ...updates } : t)),
-      );
+      saveTasks(tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)));
     },
-    [],
+    [tasks, saveTasks],
   );
 
-  const deleteTask = useCallback((id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const deleteTask = useCallback(
+    (id: string) => {
+      saveTasks(tasks.filter((t) => t.id !== id));
+    },
+    [tasks, saveTasks],
+  );
 
-  const completeTask = useCallback((id: string) => {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === id ? { ...t, status: "Done" as TaskStatus } : t,
-      ),
-    );
-  }, []);
+  const completeTask = useCallback(
+    (id: string) => {
+      saveTasks(
+        tasks.map((t) =>
+          t.id === id ? { ...t, status: "Done" as TaskStatus } : t,
+        ),
+      );
+    },
+    [tasks, saveTasks],
+  );
 
   return { tasks, addTask, updateTask, deleteTask, completeTask };
 }

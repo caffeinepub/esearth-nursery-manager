@@ -34,50 +34,27 @@ export type UserRole = { 'admin' : null } |
   { 'guest' : null };
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
-  /**
-   * / ***************
-   * /    * Checklist     *
-   * /    ****************
-   */
   'addChecklistItem' : ActorMethod<[string, string, string], bigint>,
-  /**
-   * / ****************************
-   * /    * Task Management           *
-   * /    *****************************
-   */
   'addTask' : ActorMethod<[string, string, string, string, string], bigint>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'completeTask' : ActorMethod<[bigint], undefined>,
   'deleteChecklistItem' : ActorMethod<[bigint], undefined>,
   'deleteTask' : ActorMethod<[bigint], undefined>,
-  /**
-   * / **********
-   * /    * Profiles *
-   * /    ***********
-   */
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getChecklistItemsByDate' : ActorMethod<[string], Array<ChecklistItem>>,
   'getCurrentInvoiceCounter' : ActorMethod<[], bigint>,
   'getLowStockThreshold' : ActorMethod<[], bigint>,
-  /**
-   * / *************************
-   * /    * Invoice Counter        *
-   * /    **************************
-   */
   'getNextInvoiceNumber' : ActorMethod<[], bigint>,
+  'getSharedData' : ActorMethod<[string], [] | [string]>,
   'getTasks' : ActorMethod<[], Array<Task>>,
   'getTasksByAssignee' : ActorMethod<[string], Array<Task>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'resetChecklistForNewDay' : ActorMethod<[string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
-  /**
-   * / ******************
-   * /    * Low Stock        *
-   * /    *******************
-   */
   'saveLowStockThreshold' : ActorMethod<[bigint], undefined>,
+  'setSharedData' : ActorMethod<[string, string], undefined>,
   'toggleChecklistItem' : ActorMethod<[bigint], undefined>,
   'updateTask' : ActorMethod<
     [bigint, string, string, string, string, string, string],

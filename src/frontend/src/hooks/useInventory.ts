@@ -1,52 +1,37 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo } from "react";
 import type { InventoryItem, InventoryUnit } from "../types";
+import { useSharedBackendData } from "./useSharedBackendData";
 import { useStockMovements } from "./useStockMovements";
 
-const STORAGE_KEY = "esearth_inventory_v2";
-const SKU_COUNTER_KEY = "esearth_sku_counter";
+const BACKEND_KEY = "esearth_inventory_v3";
 
-function getNextSku(): string {
-  try {
-    const counter = Number(localStorage.getItem(SKU_COUNTER_KEY) ?? "0") + 1;
-    localStorage.setItem(SKU_COUNTER_KEY, String(counter));
-    return `ESK-${String(counter).padStart(3, "0")}`;
-  } catch {
-    return `ESK-${Date.now()}`;
-  }
+function generateSku(items: InventoryItem[]): string {
+  const next = items.length + 1;
+  return `ESK-${String(next).padStart(3, "0")}`;
 }
 
 export function useInventory() {
-  const [items, setItems] = useState<InventoryItem[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) return JSON.parse(stored);
-    } catch {}
-    return [];
-  });
+  const { data: items, saveData: saveItems } = useSharedBackendData<
+    InventoryItem[]
+  >(BACKEND_KEY, []);
 
   const { addMovement } = useStockMovements();
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch {}
-  }, [items]);
 
   const addItem = useCallback(
     (
       item: Omit<InventoryItem, "id" | "sku" | "createdAt">,
       performedBy = "owner",
     ) => {
-      const sku = getNextSku();
+      const sku = generateSku(items);
       const newItem: InventoryItem = {
         ...item,
         id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         sku,
         createdAt: new Date().toISOString().split("T")[0],
       };
-      setItems((prev) => [newItem, ...prev]);
+      const updated = [newItem, ...items];
+      saveItems(updated);
 
-      // Record initial stock movement if quantity > 0
       if (item.quantity > 0) {
         addMovement({
           itemId: newItem.id,
@@ -59,7 +44,7 @@ export function useInventory() {
       }
       return newItem;
     },
-    [addMovement],
+    [items, saveItems, addMovement],
   );
 
   const updateItem = useCallback(
@@ -68,38 +53,39 @@ export function useInventory() {
       updates: Partial<Omit<InventoryItem, "id" | "sku">>,
       performedBy = "owner",
     ) => {
-      setItems((prev) => {
-        const existing = prev.find((i) => i.id === id);
-        if (!existing) return prev;
+      const existing = items.find((i) => i.id === id);
+      if (!existing) return;
 
-        // If quantity changed, record a movement
-        if (
-          updates.quantity !== undefined &&
-          updates.quantity !== existing.quantity
-        ) {
-          const diff = updates.quantity - existing.quantity;
-          const type = diff > 0 ? "Purchase" : "Adjustment";
-          addMovement({
-            itemId: id,
-            itemName: existing.name,
-            type,
-            quantity: diff,
-            remarks: "Manual adjustment",
-            performedBy,
-          });
-        }
+      if (
+        updates.quantity !== undefined &&
+        updates.quantity !== existing.quantity
+      ) {
+        const diff = updates.quantity - existing.quantity;
+        const type = diff > 0 ? "Purchase" : "Adjustment";
+        addMovement({
+          itemId: id,
+          itemName: existing.name,
+          type,
+          quantity: diff,
+          remarks: "Manual adjustment",
+          performedBy,
+        });
+      }
 
-        return prev.map((item) =>
-          item.id === id ? { ...item, ...updates } : item,
-        );
-      });
+      const updated = items.map((item) =>
+        item.id === id ? { ...item, ...updates } : item,
+      );
+      saveItems(updated);
     },
-    [addMovement],
+    [items, saveItems, addMovement],
   );
 
-  const deleteItem = useCallback((id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
-  }, []);
+  const deleteItem = useCallback(
+    (id: string) => {
+      saveItems(items.filter((item) => item.id !== id));
+    },
+    [items, saveItems],
+  );
 
   const deductStock = useCallback(
     (
@@ -109,27 +95,24 @@ export function useInventory() {
       remarks = "Stock deduction",
       type: "Sales" | "Loss" | "Damage" | "Adjustment" = "Sales",
     ) => {
-      setItems((prev) => {
-        const item = prev.find((i) => i.id === itemId);
-        if (!item) return prev;
+      const item = items.find((i) => i.id === itemId);
+      if (!item) return;
 
-        addMovement({
-          itemId,
-          itemName: item.name,
-          type,
-          quantity: -qty,
-          remarks,
-          performedBy,
-        });
-
-        return prev.map((i) =>
-          i.id === itemId
-            ? { ...i, quantity: Math.max(0, i.quantity - qty) }
-            : i,
-        );
+      addMovement({
+        itemId,
+        itemName: item.name,
+        type,
+        quantity: -qty,
+        remarks,
+        performedBy,
       });
+
+      const updated = items.map((i) =>
+        i.id === itemId ? { ...i, quantity: Math.max(0, i.quantity - qty) } : i,
+      );
+      saveItems(updated);
     },
-    [addMovement],
+    [items, saveItems, addMovement],
   );
 
   const addPurchaseStock = useCallback(
@@ -139,25 +122,24 @@ export function useInventory() {
       performedBy: string,
       remarks = "Purchase",
     ) => {
-      setItems((prev) => {
-        const item = prev.find((i) => i.id === itemId);
-        if (!item) return prev;
+      const item = items.find((i) => i.id === itemId);
+      if (!item) return;
 
-        addMovement({
-          itemId,
-          itemName: item.name,
-          type: "Purchase",
-          quantity: qty,
-          remarks,
-          performedBy,
-        });
-
-        return prev.map((i) =>
-          i.id === itemId ? { ...i, quantity: i.quantity + qty } : i,
-        );
+      addMovement({
+        itemId,
+        itemName: item.name,
+        type: "Purchase",
+        quantity: qty,
+        remarks,
+        performedBy,
       });
+
+      const updated = items.map((i) =>
+        i.id === itemId ? { ...i, quantity: i.quantity + qty } : i,
+      );
+      saveItems(updated);
     },
-    [addMovement],
+    [items, saveItems, addMovement],
   );
 
   const getItemById = useCallback(
@@ -165,10 +147,9 @@ export function useInventory() {
     [items],
   );
 
-  // Compute total inventory value (cost-based)
-  const totalInventoryValue = items.reduce(
-    (sum, i) => sum + i.costPrice * i.quantity,
-    0,
+  const totalInventoryValue = useMemo(
+    () => items.reduce((sum, i) => sum + i.costPrice * i.quantity, 0),
+    [items],
   );
 
   return {

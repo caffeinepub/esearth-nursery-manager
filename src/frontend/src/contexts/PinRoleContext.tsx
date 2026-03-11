@@ -1,11 +1,21 @@
+/**
+ * PinRoleContext — PINs stored in the shared backend canister.
+ * No localStorage writes; all data synced via setSharedData/getSharedData.
+ */
 import {
   type ReactNode,
   createContext,
+  useCallback,
   useContext,
-  useEffect,
   useState,
 } from "react";
+import { useSharedBackendData } from "../hooks/useSharedBackendData";
 import type { Role } from "../types";
+
+interface PinData {
+  ownerPin: string;
+  clerkPin: string;
+}
 
 interface PinRoleContextType {
   role: Role | null;
@@ -13,16 +23,24 @@ interface PinRoleContextType {
   logout: () => void;
   ownerPin: string;
   clerkPin: string;
-  setOwnerPin: (pin: string) => void;
-  setClerkPin: (pin: string) => void;
+  /** Save both PINs atomically to the backend */
+  savePins: (ownerPin: string, clerkPin: string) => void;
+  pinsLoading: boolean;
 }
 
 const PinRoleContext = createContext<PinRoleContextType | null>(null);
 
-const STORAGE_KEY = "esearth_pins";
 const SESSION_KEY = "esearth_role";
+const PINS_KEY = "esearth_pins_v4";
+const DEFAULT_PINS: PinData = { ownerPin: "1234", clerkPin: "0000" };
 
 export function PinRoleProvider({ children }: { children: ReactNode }) {
+  const {
+    data: pinData,
+    saveData: savePinData,
+    isLoading: pinsLoading,
+  } = useSharedBackendData<PinData>(PINS_KEY, DEFAULT_PINS);
+
   const [role, setRoleState] = useState<Role | null>(() => {
     try {
       return (sessionStorage.getItem(SESSION_KEY) as Role) ?? null;
@@ -31,27 +49,7 @@ export function PinRoleProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  const [ownerPin, setOwnerPinState] = useState<string>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) return JSON.parse(stored).ownerPin ?? "1234";
-    } catch {}
-    return "1234";
-  });
-
-  const [clerkPin, setClerkPinState] = useState<string>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) return JSON.parse(stored).clerkPin ?? "0000";
-    } catch {}
-    return "0000";
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ownerPin, clerkPin }));
-    } catch {}
-  }, [ownerPin, clerkPin]);
+  const { ownerPin, clerkPin } = pinData;
 
   const setRole = (roleToSet: Role, pin: string): boolean => {
     const expectedPin = roleToSet === "owner" ? ownerPin : clerkPin;
@@ -72,8 +70,12 @@ export function PinRoleProvider({ children }: { children: ReactNode }) {
     } catch {}
   };
 
-  const setOwnerPin = (pin: string) => setOwnerPinState(pin);
-  const setClerkPin = (pin: string) => setClerkPinState(pin);
+  const savePins = useCallback(
+    (newOwnerPin: string, newClerkPin: string) => {
+      savePinData({ ownerPin: newOwnerPin, clerkPin: newClerkPin });
+    },
+    [savePinData],
+  );
 
   return (
     <PinRoleContext.Provider
@@ -83,8 +85,8 @@ export function PinRoleProvider({ children }: { children: ReactNode }) {
         logout,
         ownerPin,
         clerkPin,
-        setOwnerPin,
-        setClerkPin,
+        savePins,
+        pinsLoading,
       }}
     >
       {children}

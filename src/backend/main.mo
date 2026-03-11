@@ -45,6 +45,10 @@ actor {
   let dailyChecklist = Map.empty<Nat, ChecklistItem>();
   let tasks = Map.empty<Nat, Task>();
 
+  // Generic shared data store (key -> JSON string)
+  // Used for inventory, sales, expenditures, stock movements, priority tasks
+  let sharedDataStore = Map.empty<Text, Text>();
+
   var nextDailyChecklistId = 1;
   var nextTaskId = 1;
   var lowStockThreshold = 10;
@@ -277,5 +281,20 @@ actor {
   public query func getCurrentInvoiceCounter() : async Nat {
     // Any user including guests can view invoice counter (no authorization check needed)
     invoiceCounter;
+  };
+
+  /***********************************
+   * Shared Data Store              *
+   * Generic key-value JSON storage *
+   * for inventory, sales, etc.     *
+   ***********************************/
+  public shared func setSharedData(key : Text, value : Text) : async () {
+    // No auth check - all devices with app access can read/write shared data
+    sharedDataStore.add(key, value);
+  };
+
+  public query func getSharedData(key : Text) : async ?Text {
+    // No auth check - all devices with app access can read shared data
+    sharedDataStore.get(key);
   };
 };

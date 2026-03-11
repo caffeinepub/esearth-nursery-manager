@@ -55,6 +55,7 @@ export const idlService = IDL.Service({
   'getCurrentInvoiceCounter' : IDL.Func([], [IDL.Nat], ['query']),
   'getLowStockThreshold' : IDL.Func([], [IDL.Nat], ['query']),
   'getNextInvoiceNumber' : IDL.Func([], [IDL.Nat], []),
+  'getSharedData' : IDL.Func([IDL.Text], [IDL.Opt(IDL.Text)], ['query']),
   'getTasks' : IDL.Func([], [IDL.Vec(Task)], ['query']),
   'getTasksByAssignee' : IDL.Func([IDL.Text], [IDL.Vec(Task)], ['query']),
   'getUserProfile' : IDL.Func(
@@ -66,6 +67,7 @@ export const idlService = IDL.Service({
   'resetChecklistForNewDay' : IDL.Func([IDL.Text], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'saveLowStockThreshold' : IDL.Func([IDL.Nat], [], []),
+  'setSharedData' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'toggleChecklistItem' : IDL.Func([IDL.Nat], [], []),
   'updateTask' : IDL.Func(
       [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
@@ -128,6 +130,7 @@ export const idlFactory = ({ IDL }) => {
     'getCurrentInvoiceCounter' : IDL.Func([], [IDL.Nat], ['query']),
     'getLowStockThreshold' : IDL.Func([], [IDL.Nat], ['query']),
     'getNextInvoiceNumber' : IDL.Func([], [IDL.Nat], []),
+    'getSharedData' : IDL.Func([IDL.Text], [IDL.Opt(IDL.Text)], ['query']),
     'getTasks' : IDL.Func([], [IDL.Vec(Task)], ['query']),
     'getTasksByAssignee' : IDL.Func([IDL.Text], [IDL.Vec(Task)], ['query']),
     'getUserProfile' : IDL.Func(
@@ -139,6 +142,7 @@ export const idlFactory = ({ IDL }) => {
     'resetChecklistForNewDay' : IDL.Func([IDL.Text], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'saveLowStockThreshold' : IDL.Func([IDL.Nat], [], []),
+    'setSharedData' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'toggleChecklistItem' : IDL.Func([IDL.Nat], [], []),
     'updateTask' : IDL.Func(
         [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
