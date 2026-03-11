@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Leaf, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { usePinRole } from "../contexts/PinRoleContext";
@@ -95,8 +95,12 @@ export default function PinLogin() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4 shadow-lg">
-            <Leaf className="w-8 h-8 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white mb-4 shadow-lg border border-border">
+            <img
+              src="/assets/uploads/IMG_20250112_193736_047-1.jpg"
+              alt="Esearth Nursery logo"
+              className="w-16 h-16 object-contain rounded-xl"
+            />
           </div>
           <h1 className="text-2xl font-display font-bold text-foreground">
             Esearth
@@ -133,7 +137,6 @@ export default function PinLogin() {
                 onClick={() => handleRoleSelect("clerk")}
                 data-ocid="pin.role.clerk.button"
               >
-                <Leaf className="w-4 h-4 mr-2" />
                 Clerk
               </Button>
             </div>

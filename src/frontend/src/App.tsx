@@ -8,6 +8,7 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import Layout from "./components/Layout";
+import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import { PinRoleProvider, usePinRole } from "./contexts/PinRoleContext";
 import BusinessAnalytics from "./pages/BusinessAnalytics";
 import DailyChecklist from "./pages/DailyChecklist";
@@ -48,6 +49,7 @@ const rootRoute = createRootRoute({
     <>
       <Outlet />
       <Toaster richColors position="top-right" />
+      <PwaInstallPrompt />
     </>
   ),
 });
@@ -164,6 +166,7 @@ function AppInner() {
       <>
         <PinLogin />
         <Toaster richColors position="top-right" />
+        <PwaInstallPrompt />
       </>
     );
   }

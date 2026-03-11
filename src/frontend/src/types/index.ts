@@ -21,6 +21,7 @@ export interface InventoryItem {
   sellingPrice: number;
   quantity: number;
   unit: InventoryUnit;
+  threshold: number; // per-item low stock threshold
   createdAt: string;
 }
 

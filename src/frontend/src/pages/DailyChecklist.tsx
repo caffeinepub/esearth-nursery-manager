@@ -106,6 +106,16 @@ export default function DailyChecklist() {
   );
   const prevAllDone = useRef(false);
 
+  // Checklist item editing state
+  const [editChecklistItem, setEditChecklistItem] = useState<{
+    id: bigint;
+    title: string;
+    completed: boolean;
+    category: string;
+    date: string;
+  } | null>(null);
+  const [editChecklistTitle, setEditChecklistTitle] = useState("");
+
   // Task management
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<bigint | null>(null);
@@ -189,6 +199,36 @@ export default function DailyChecklist() {
       toast.success("Checklist reset for today");
     } catch {
       toast.error("Failed to reset checklist");
+    }
+  };
+
+  // Edit checklist item: delete old, re-add with new title preserving completed state
+  const openEditChecklist = (item: {
+    id: bigint;
+    title: string;
+    completed: boolean;
+    category: string;
+    date: string;
+  }) => {
+    setEditChecklistItem(item);
+    setEditChecklistTitle(item.title);
+  };
+
+  const handleSaveEditChecklist = async () => {
+    if (!editChecklistItem || !editChecklistTitle.trim()) return;
+    try {
+      // Delete old item, then add new one with updated title
+      await deleteChecklistItem.mutateAsync(editChecklistItem.id);
+      await addChecklistItem.mutateAsync({
+        title: editChecklistTitle.trim(),
+        date: editChecklistItem.date,
+        category: editChecklistItem.category,
+      });
+      setEditChecklistItem(null);
+      setEditChecklistTitle("");
+      toast.success("Item updated");
+    } catch {
+      toast.error("Failed to update item");
     }
   };
 
@@ -454,15 +494,26 @@ export default function DailyChecklist() {
                       <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
                     )}
                     {role === "owner" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-                        onClick={() => setChecklistDeleteId(item.id)}
-                        data-ocid={`checklist.delete_button.${idx + 1}`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-primary flex-shrink-0"
+                          onClick={() => openEditChecklist(item)}
+                          data-ocid={`checklist.edit_button.${idx + 1}`}
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
+                          onClick={() => setChecklistDeleteId(item.id)}
+                          data-ocid={`checklist.delete_button.${idx + 1}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </>
                     )}
                   </CardContent>
                 </Card>
@@ -611,6 +662,58 @@ export default function DailyChecklist() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Checklist item edit dialog */}
+      <Dialog
+        open={!!editChecklistItem}
+        onOpenChange={() => setEditChecklistItem(null)}
+      >
+        <DialogContent
+          className="sm:max-w-sm"
+          data-ocid="checklist.edit.dialog"
+        >
+          <DialogHeader>
+            <DialogTitle>Edit Checklist Item</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label>Task Title</Label>
+              <Input
+                value={editChecklistTitle}
+                onChange={(e) => setEditChecklistTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveEditChecklist();
+                }}
+                placeholder="Task title"
+                data-ocid="checklist.edit.input"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setEditChecklistItem(null)}
+              data-ocid="checklist.edit.cancel_button"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEditChecklist}
+              disabled={
+                !editChecklistTitle.trim() ||
+                deleteChecklistItem.isPending ||
+                addChecklistItem.isPending
+              }
+              data-ocid="checklist.edit.save_button"
+            >
+              {deleteChecklistItem.isPending || addChecklistItem.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Checklist delete confirm */}
       <Dialog

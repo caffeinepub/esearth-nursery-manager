@@ -103,8 +103,12 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
       {/* Logo */}
       <div className="flex items-center justify-between px-4 py-5 border-b border-sidebar-border">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center flex-shrink-0">
-            <Leaf className="w-4 h-4 text-sidebar-primary-foreground" />
+          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center flex-shrink-0 border border-sidebar-border overflow-hidden">
+            <img
+              src="/assets/uploads/IMG_20250112_193736_047-1.jpg"
+              alt="Esearth logo"
+              className="w-7 h-7 object-contain"
+            />
           </div>
           <div>
             <p className="text-sm font-display font-bold text-sidebar-foreground leading-none">
@@ -213,7 +217,13 @@ export default function Sidebar() {
           <Menu className="w-5 h-5" />
         </Button>
         <div className="flex items-center gap-2">
-          <Leaf className="w-5 h-5 text-sidebar-primary" />
+          <div className="w-6 h-6 rounded bg-white flex items-center justify-center border border-sidebar-border overflow-hidden">
+            <img
+              src="/assets/uploads/IMG_20250112_193736_047-1.jpg"
+              alt="Esearth logo"
+              className="w-5 h-5 object-contain"
+            />
+          </div>
           <span className="text-sm font-display font-bold text-sidebar-foreground">
             Esearth
           </span>

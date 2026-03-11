@@ -35,6 +35,7 @@ import {
   CheckCircle,
   ChevronsUpDown,
   CreditCard,
+  Download,
   Loader2,
   Plus,
   Printer,
@@ -234,138 +235,241 @@ export default function Sales() {
     }
   };
 
-  const handlePrint = (invoice: Invoice) => {
+  const buildThermalInvoiceHtml = (invoice: Invoice): string => {
     const total = invoice.lineItems.reduce(
       (s, l) => s + l.quantity * l.unitPrice,
       0,
     );
 
-    const htmlContent = `<!DOCTYPE html>
+    const itemRows = invoice.lineItems
+      .map((li) => {
+        const amount = (li.quantity * li.unitPrice).toFixed(2);
+        return `
+      <tr>
+        <td class="item-name">${li.name}</td>
+        <td class="item-qty">${li.quantity}</td>
+        <td class="item-rate">&#8377;${li.unitPrice.toFixed(2)}</td>
+        <td class="item-amt">&#8377;${amount}</td>
+      </tr>`;
+      })
+      .join("");
+
+    return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
   <title>Invoice ${invoice.invoiceNumber}</title>
   <style>
-    @page { margin: 1cm; size: A4 portrait; }
+    @page {
+      size: 80mm auto;
+      margin: 0;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: serif; color: #111; background: #fff; }
-    .wrap { max-width: 700px; margin: 0 auto; padding: 24px; }
-    .header { text-align: center; border-bottom: 2px solid #1a3d1f; padding-bottom: 12px; margin-bottom: 16px; }
-    .header h1 { font-size: 20px; font-weight: 700; color: #1a3d1f; letter-spacing: 2px; }
-    .header p { font-size: 11px; color: #444; margin-top: 3px; }
-    .meta { display: flex; justify-content: space-between; margin-bottom: 16px; }
-    .meta-left p, .meta-right p { font-size: 12px; color: #555; margin-top: 2px; }
-    .meta-left .title { font-weight: 700; font-size: 15px; color: #1a3d1f; }
-    .meta-right { text-align: right; }
-    .meta-right .bill-title { font-weight: 600; font-size: 13px; }
-    .notes { font-size: 11px; color: #666; margin-bottom: 12px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-    thead tr { border-bottom: 2px solid #1a3d1f; background: #f5f9f5; }
-    th { text-align: left; padding: 8px 6px; font-size: 12px; }
-    th:not(:first-child) { text-align: right; }
-    td { padding: 7px 6px; font-size: 12px; border-bottom: 1px solid #e8f0e8; }
-    td:not(:first-child) { text-align: right; }
-    tr:nth-child(even) td { background: #fafef9; }
-    .total-row { border-top: 2px solid #1a3d1f; padding-top: 8px; text-align: right; margin-bottom: 24px; }
-    .total-row .total-amt { font-size: 17px; font-weight: 700; color: #1a3d1f; }
-    .total-row .pay-method { font-size: 12px; color: #555; margin-top: 2px; }
-    .footer { border-top: 1px dashed #ccc; padding-top: 14px; text-align: center; color: #555; }
-    .footer .decl { font-size: 10px; line-height: 1.6; margin-bottom: 8px; }
-    .footer .thanks { font-size: 13px; font-weight: 700; color: #1a3d1f; margin: 8px 0 2px; }
-    .footer .visit { font-size: 12px; color: #444; margin-bottom: 8px; }
-    .footer .tamil { font-size: 13px; font-style: italic; color: #2d5a2e; }
+    html, body {
+      width: 80mm;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11pt;
+      color: #000;
+      background: #fff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .wrap {
+      width: 80mm;
+      padding: 4mm 4mm 6mm 4mm;
+    }
+    .center { text-align: center; }
+    .header { text-align: center; margin-bottom: 4mm; }
+    .header h1 {
+      font-size: 13pt;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      margin-bottom: 1mm;
+    }
+    .header p { font-size: 9pt; line-height: 1.5; }
+    .divider-solid { border-top: 1px solid #000; margin: 2mm 0; }
+    .divider-dashed { border-top: 1px dashed #000; margin: 2mm 0; }
+    .invoice-title {
+      text-align: center;
+      font-size: 12pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin: 2mm 0;
+    }
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9.5pt;
+      margin-bottom: 1mm;
+    }
+    .meta-label { font-weight: 700; }
+    .customer-block { font-size: 9.5pt; margin: 2mm 0; }
+    .customer-block .lbl { font-weight: 700; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 2mm 0;
+    }
+    thead tr th {
+      font-size: 9pt;
+      font-weight: 700;
+      border-top: 1px solid #000;
+      border-bottom: 1px solid #000;
+      padding: 1mm 0.5mm;
+    }
+    th.item-name { text-align: left; width: 42%; }
+    th.item-qty { text-align: center; width: 10%; }
+    th.item-rate { text-align: right; width: 22%; }
+    th.item-amt { text-align: right; width: 26%; }
+    tbody tr td {
+      font-size: 9.5pt;
+      padding: 1.5mm 0.5mm;
+      vertical-align: top;
+      border-bottom: 1px dotted #aaa;
+    }
+    td.item-name { text-align: left; word-break: break-word; }
+    td.item-qty { text-align: center; }
+    td.item-rate { text-align: right; }
+    td.item-amt { text-align: right; font-weight: 700; }
+    .total-section { margin: 2mm 0; }
+    .total-line {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11pt;
+      font-weight: 900;
+      padding: 1.5mm 0;
+    }
+    .payment-line {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9.5pt;
+      margin-top: 1mm;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 3mm;
+    }
+    .footer .decl {
+      font-size: 8pt;
+      line-height: 1.5;
+      margin-bottom: 2mm;
+    }
+    .footer .thanks {
+      font-size: 10pt;
+      font-weight: 900;
+      margin: 2mm 0 0.5mm;
+    }
+    .footer .visit { font-size: 9pt; margin-bottom: 2mm; }
+    .footer .tamil { font-size: 9pt; line-height: 1.7; }
   </style>
 </head>
 <body>
 <div class="wrap">
   <div class="header">
-    <h1>ESEARTH NURSERY GARDEN</h1>
+    <h1>ESEARTH NURSERY</h1>
+    <h1>GARDEN</h1>
     <p>Near Jio Petrol Bunk, Salem Highway</p>
-    <p>Papinaickenpatti, Namakkal – 637003</p>
+    <p>Papinaickenpatti, Namakkal - 637003</p>
     <p>Ph: 7695887203 / 9443551796</p>
   </div>
-  <div class="meta">
-    <div class="meta-left">
-      <p class="title">INVOICE</p>
-      <p>Invoice No: ${invoice.invoiceNumber}</p>
-      <p>Date: ${invoice.date}</p>
-      <p>Payment: ${invoice.paymentMethod}</p>
-    </div>
-    <div class="meta-right">
-      <p class="bill-title">Bill To:</p>
-      <p>${invoice.customerName}</p>
-      ${invoice.customerPhone ? `<p>${invoice.customerPhone}</p>` : ""}
-    </div>
+
+  <div class="divider-solid"></div>
+  <div class="invoice-title">INVOICE</div>
+  <div class="divider-solid"></div>
+
+  <div class="meta-row">
+    <span><span class="meta-label">INV#:</span> ${invoice.invoiceNumber}</span>
+    <span><span class="meta-label">Date:</span> ${invoice.date}</span>
   </div>
-  ${invoice.notes ? `<p class="notes">Note: ${invoice.notes}</p>` : ""}
+  <div class="meta-row">
+    <span><span class="meta-label">Payment:</span> ${invoice.paymentMethod}</span>
+  </div>
+
+  <div class="divider-dashed"></div>
+
+  <div class="customer-block">
+    <span class="lbl">Bill To: </span>${invoice.customerName}${invoice.customerPhone ? `<br/><span class="lbl">Phone: </span>${invoice.customerPhone}` : ""}
+  </div>
+
+  ${invoice.notes ? `<div class="customer-block"><span class="lbl">Note: </span>${invoice.notes}</div>` : ""}
+
+  <div class="divider-dashed"></div>
+
   <table>
     <thead>
       <tr>
-        <th>Item</th>
-        <th>Qty</th>
-        <th>Unit Price</th>
-        <th>Amount</th>
+        <th class="item-name">Item</th>
+        <th class="item-qty">Qty</th>
+        <th class="item-rate">Rate</th>
+        <th class="item-amt">Amt</th>
       </tr>
     </thead>
     <tbody>
-      ${invoice.lineItems
-        .map(
-          (li) => `
-      <tr>
-        <td>${li.name}</td>
-        <td>${li.quantity}</td>
-        <td>&#8377;${li.unitPrice.toFixed(2)}</td>
-        <td><strong>&#8377;${(li.quantity * li.unitPrice).toFixed(2)}</strong></td>
-      </tr>`,
-        )
-        .join("")}
+      ${itemRows}
     </tbody>
   </table>
-  <div class="total-row">
-    <p class="total-amt">Total: &#8377;${total.toFixed(2)}</p>
-    <p class="pay-method">Payment Method: ${invoice.paymentMethod}</p>
+
+  <div class="divider-solid"></div>
+
+  <div class="total-section">
+    <div class="total-line">
+      <span>TOTAL</span>
+      <span>&#8377;${total.toFixed(2)}</span>
+    </div>
+    <div class="payment-line">
+      <span>Payment Method</span>
+      <span>${invoice.paymentMethod}</span>
+    </div>
   </div>
+
+  <div class="divider-dashed"></div>
+
   <div class="footer">
     <p class="decl">We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</p>
+    <div class="divider-dashed"></div>
     <p class="thanks">THANK YOU FOR SHOPPING WITH US</p>
-    <p class="visit">VISIT AGAIN – HAVE A NICE DAY</p>
+    <p class="visit">VISIT AGAIN - HAVE A NICE DAY</p>
     <p class="tamil">உழுதுண்டு வாழ்வாரே வாழ்வார்மற் றெல்லாம்<br/>தொழுதுண்டு பின்செல் பவர்.</p>
   </div>
 </div>
 </body>
 </html>`;
+  };
 
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.top = "-9999px";
-    iframe.style.left = "-9999px";
-    iframe.style.width = "210mm";
-    iframe.style.height = "297mm";
-    iframe.style.border = "none";
-    document.body.appendChild(iframe);
-
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!iframeDoc) {
-      toast.error("Failed to export PDF");
-      document.body.removeChild(iframe);
+  const handlePrint = (invoice: Invoice) => {
+    const htmlContent = buildThermalInvoiceHtml(invoice);
+    const printWindow = window.open("", "_blank", "width=400,height=700");
+    if (!printWindow) {
+      toast.error(
+        "Popup blocked. Please allow popups for this site and try again.",
+      );
       return;
     }
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
+  };
 
-    iframeDoc.open();
-    iframeDoc.write(htmlContent);
-    iframeDoc.close();
-
-    iframe.onload = () => {
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } catch {
-        toast.error("Failed to export PDF");
-      } finally {
-        setTimeout(() => {
-          document.body.removeChild(iframe);
-        }, 1000);
-      }
+  const handleDownloadPDF = (invoice: Invoice) => {
+    const htmlContent = buildThermalInvoiceHtml(invoice);
+    const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const printWindow = window.open(url, "_blank", "width=400,height=700");
+    if (!printWindow) {
+      toast.error(
+        "Popup blocked. Please allow popups for this site and try again.",
+      );
+      URL.revokeObjectURL(url);
+      return;
+    }
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
     };
   };
 
@@ -495,9 +599,19 @@ export default function Sales() {
                           className="h-8 w-8"
                           onClick={() => handlePrint(inv)}
                           data-ocid={`sales.print.button.${idx + 1}`}
-                          title="Export Invoice as PDF"
+                          title="Print Invoice"
                         >
                           <Printer className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleDownloadPDF(inv)}
+                          data-ocid={`sales.download_pdf.button.${idx + 1}`}
+                          title="Download Invoice PDF"
+                        >
+                          <Download className="w-3.5 h-3.5" />
                         </Button>
                         {role === "owner" && (
                           <Button

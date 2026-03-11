@@ -83,6 +83,7 @@ interface ItemFormData {
   sellingPrice: string;
   quantity: string;
   unit: InventoryUnit;
+  threshold: string;
 }
 
 const emptyForm = (): ItemFormData => ({
@@ -94,6 +95,7 @@ const emptyForm = (): ItemFormData => ({
   sellingPrice: "",
   quantity: "",
   unit: "Plant nos.",
+  threshold: "10",
 });
 
 const movementTypeColors: Record<StockMovementType, string> = {
@@ -109,7 +111,8 @@ export default function Inventory() {
   const { items, addItem, updateItem, deleteItem } = useInventory();
   const { getMovementsByItem } = useStockMovements();
   const { data: threshold = 10n } = useLowStockThreshold();
-  const thresholdNum = Number(threshold);
+  const globalThreshold = Number(threshold);
+  const isClerk = role === "clerk";
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -134,6 +137,10 @@ export default function Inventory() {
   const [moveType, setMoveType] = useState<StockMovementType>("Purchase");
   const [moveQty, setMoveQty] = useState("");
   const [moveRemarks, setMoveRemarks] = useState("");
+
+  // Per-item threshold from item, or fall back to global
+  const getEffectiveThreshold = (item: InventoryItem) =>
+    item.threshold ?? globalThreshold;
 
   const filtered = items.filter((item) => {
     const matchSearch =
@@ -163,6 +170,7 @@ export default function Inventory() {
       sellingPrice: String(item.sellingPrice),
       quantity: String(item.quantity),
       unit: item.unit,
+      threshold: String(item.threshold ?? globalThreshold),
     });
     setDialogOpen(true);
   };
@@ -181,6 +189,7 @@ export default function Inventory() {
       sellingPrice: Number(form.sellingPrice),
       quantity: Number(form.quantity),
       unit: form.unit,
+      threshold: Number(form.threshold) || globalThreshold,
     };
     if (editingId) {
       updateItem(editingId, data, role ?? "owner");
@@ -207,21 +216,28 @@ export default function Inventory() {
         Description: i.description,
         "Age of Plant": i.agePlant,
         Category: i.category,
-        "Cost Price (₹)": i.costPrice,
+        // Cost price excluded from Clerk exports
+        ...(role === "owner" ? { "Cost Price (₹)": i.costPrice } : {}),
         "Selling Price (₹)": i.sellingPrice,
+        ...(role === "owner"
+          ? {
+              "Margin %": (
+                ((i.sellingPrice - i.costPrice) / i.costPrice) *
+                100
+              ).toFixed(1),
+            }
+          : {}),
         Quantity: i.quantity,
         Unit: i.unit,
-        "Margin %": (
-          ((i.sellingPrice - i.costPrice) / i.costPrice) *
-          100
-        ).toFixed(1),
-        Status: i.quantity <= thresholdNum ? "Low Stock" : "In Stock",
+        "Low Stock Threshold": i.threshold ?? globalThreshold,
+        Status:
+          i.quantity <= getEffectiveThreshold(i) ? "Low Stock" : "In Stock",
       })),
     );
     toast.success("CSV exported");
   };
 
-  // QR code generation
+  // QR code generation with plant name footer
   const openQR = async (item: InventoryItem) => {
     setQrItem(item);
     setQrLoading(true);
@@ -231,12 +247,52 @@ export default function Inventory() {
         description: item.description,
         sellingPrice: item.sellingPrice,
       });
-      const url = await QRCode.toDataURL(data, {
-        width: 256,
-        margin: 2,
+
+      const qrSize = 256;
+      const padding = 16;
+      const footerHeight = 40;
+      const canvasWidth = qrSize + padding * 2;
+      const canvasHeight = qrSize + padding * 2 + footerHeight;
+
+      // Generate raw QR data URL
+      const rawQr = await QRCode.toDataURL(data, {
+        width: qrSize,
+        margin: 1,
         color: { dark: "#1a3d1f", light: "#ffffff" },
       });
-      setQrDataUrl(url);
+
+      // Draw QR + footer text on canvas
+      const canvas = document.createElement("canvas");
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas not available");
+
+      // White background
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      // Draw QR image
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+        img.src = rawQr;
+      });
+      ctx.drawImage(img, padding, padding, qrSize, qrSize);
+
+      // Footer: plant name centered below QR
+      ctx.fillStyle = "#1a3d1f";
+      ctx.font = "bold 15px Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        item.name,
+        canvasWidth / 2,
+        qrSize + padding * 2 + footerHeight / 2,
+      );
+
+      setQrDataUrl(canvas.toDataURL("image/png"));
     } catch {
       toast.error("Failed to generate QR code");
     } finally {
@@ -282,6 +338,7 @@ export default function Inventory() {
   ];
 
   const getMarginBadge = (item: InventoryItem) => {
+    if (isClerk) return null;
     if (item.costPrice === 0) return null;
     const margin =
       ((item.sellingPrice - item.costPrice) / item.costPrice) * 100;
@@ -318,19 +375,21 @@ export default function Inventory() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleExport}
-            data-ocid="inventory.export.button"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </Button>
           {role === "owner" && (
-            <Button onClick={openAdd} data-ocid="inventory.add.button">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Item
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={handleExport}
+                data-ocid="inventory.export.button"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button onClick={openAdd} data-ocid="inventory.add.button">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Item
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -374,11 +433,16 @@ export default function Inventory() {
               <TableHead className="hidden sm:table-cell">Category</TableHead>
               <TableHead className="text-right">Qty</TableHead>
               <TableHead className="hidden sm:table-cell">Unit</TableHead>
-              <TableHead className="text-right hidden md:table-cell">
-                Cost ₹
-              </TableHead>
+              {/* Cost price hidden from Clerk */}
+              {!isClerk && (
+                <TableHead className="text-right hidden md:table-cell">
+                  Cost ₹
+                </TableHead>
+              )}
               <TableHead className="text-right">Sell ₹</TableHead>
-              <TableHead className="hidden lg:table-cell">Margin</TableHead>
+              {!isClerk && (
+                <TableHead className="hidden lg:table-cell">Margin</TableHead>
+              )}
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -387,7 +451,7 @@ export default function Inventory() {
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={11}
+                  colSpan={isClerk ? 8 : 11}
                   className="text-center py-12 text-muted-foreground"
                   data-ocid="inventory.empty_state"
                 >
@@ -395,110 +459,120 @@ export default function Inventory() {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((item, idx) => (
-                <TableRow
-                  key={item.id}
-                  data-ocid={`inventory.item.${idx + 1}`}
-                  className={
-                    item.quantity <= thresholdNum ? "bg-destructive/5" : ""
-                  }
-                >
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {item.sku}
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium text-sm">{item.name}</p>
-                      {item.agePlant && (
-                        <p className="text-xs text-muted-foreground">
-                          Age: {item.agePlant}
-                        </p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-32 truncate">
-                    {item.description || "—"}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <Badge variant="secondary" className="text-xs">
-                      {item.category}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {item.quantity}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                    {item.unit}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm hidden md:table-cell">
-                    ₹{item.costPrice.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    ₹{item.sellingPrice.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    {getMarginBadge(item)}
-                  </TableCell>
-                  <TableCell>
-                    {item.quantity <= thresholdNum ? (
-                      <Badge variant="destructive" className="gap-1 text-xs">
-                        <AlertTriangle className="w-3 h-3" />
-                        Low
+              filtered.map((item, idx) => {
+                const effectiveThreshold = getEffectiveThreshold(item);
+                return (
+                  <TableRow
+                    key={item.id}
+                    data-ocid={`inventory.item.${idx + 1}`}
+                    className={
+                      item.quantity <= effectiveThreshold
+                        ? "bg-destructive/5"
+                        : ""
+                    }
+                  >
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {item.sku}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-sm">{item.name}</p>
+                        {item.agePlant && (
+                          <p className="text-xs text-muted-foreground">
+                            Age: {item.agePlant}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-32 truncate">
+                      {item.description || "—"}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <Badge variant="secondary" className="text-xs">
+                        {item.category}
                       </Badge>
-                    ) : (
-                      <Badge className="text-xs bg-success/15 text-success border-0">
-                        In Stock
-                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {item.quantity}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                      {item.unit}
+                    </TableCell>
+                    {/* Cost price column - hidden from Clerk */}
+                    {!isClerk && (
+                      <TableCell className="text-right font-mono text-sm hidden md:table-cell">
+                        ₹{item.costPrice.toFixed(2)}
+                      </TableCell>
                     )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openQR(item)}
-                        title="Export QR Code"
-                        data-ocid={`inventory.qr.button.${idx + 1}`}
-                      >
-                        <QrCode className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setHistoryItem(item)}
-                        title="Movement History"
-                        data-ocid={`inventory.history.button.${idx + 1}`}
-                      >
-                        <History className="w-3.5 h-3.5" />
-                      </Button>
-                      {role === "owner" && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openEdit(item)}
-                            data-ocid={`inventory.edit_button.${idx + 1}`}
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => setDeleteConfirmId(item.id)}
-                            data-ocid={`inventory.delete_button.${idx + 1}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </>
+                    <TableCell className="text-right font-mono text-sm">
+                      ₹{item.sellingPrice.toFixed(2)}
+                    </TableCell>
+                    {!isClerk && (
+                      <TableCell className="hidden lg:table-cell">
+                        {getMarginBadge(item)}
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      {item.quantity <= effectiveThreshold ? (
+                        <Badge variant="destructive" className="gap-1 text-xs">
+                          <AlertTriangle className="w-3 h-3" />
+                          Low
+                        </Badge>
+                      ) : (
+                        <Badge className="text-xs bg-success/15 text-success border-0">
+                          In Stock
+                        </Badge>
                       )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openQR(item)}
+                          title="Export QR Code"
+                          data-ocid={`inventory.qr.button.${idx + 1}`}
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setHistoryItem(item)}
+                          title="Movement History"
+                          data-ocid={`inventory.history.button.${idx + 1}`}
+                        >
+                          <History className="w-3.5 h-3.5" />
+                        </Button>
+                        {role === "owner" && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEdit(item)}
+                              data-ocid={`inventory.edit_button.${idx + 1}`}
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => setDeleteConfirmId(item.id)}
+                              data-ocid={`inventory.delete_button.${idx + 1}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -639,7 +713,7 @@ export default function Inventory() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label>Quantity *</Label>
                 <Input
@@ -672,6 +746,19 @@ export default function Inventory() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Low Stock Threshold</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={form.threshold}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, threshold: e.target.value }))
+                  }
+                  placeholder="10"
+                  data-ocid="inventory.threshold.input"
+                />
               </div>
             </div>
           </div>
@@ -881,13 +968,11 @@ export default function Inventory() {
                 <img
                   ref={qrCanvasRef}
                   src={qrDataUrl}
-                  alt="QR Code"
-                  className="w-48 h-48 rounded-lg border border-border"
+                  alt={`QR Code for ${qrItem?.name}`}
+                  className="rounded-lg border border-border"
+                  style={{ width: 288, height: "auto" }}
                 />
                 <div className="text-center text-xs text-muted-foreground space-y-1">
-                  <p className="font-semibold text-foreground">
-                    {qrItem?.name}
-                  </p>
                   <p>Selling Price: ₹{qrItem?.sellingPrice.toFixed(2)}</p>
                   {qrItem?.description && (
                     <p className="max-w-48 truncate">{qrItem.description}</p>
